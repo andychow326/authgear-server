@@ -25,12 +25,16 @@ func (e *EdgeVerifyIdentityViaWhatsapp) Instantiate(ctx *interaction.Context, gr
 	}
 
 	phone := e.Identity.Claims[identity.IdentityClaimLoginIDValue].(string)
-	// fixme(whatsapp): generate otp
+
+	code, err := ctx.WhatsappCodeProvider.CreateCode(phone, string(ctx.Config.ID), ctx.WebSessionID)
+	if err != nil {
+		return nil, err
+	}
 
 	node := &NodeVerifyIdentityViaWhatsapp{
 		Identity:        e.Identity,
 		RequestedByUser: e.RequestedByUser,
-		WhatsappOTP:     "secret",
+		WhatsappOTP:     code.Code,
 		Phone:           phone,
 		PhoneOTPMode:    ctx.Config.Authenticator.OOB.SMS.PhoneOTPMode,
 	}
@@ -84,7 +88,7 @@ func (n *NodeVerifyIdentityViaWhatsapp) DeriveEdges(graph *interaction.Graph) ([
 }
 
 type InputVerifyIdentityViaWhatsappCheckCode interface {
-	GetWhatsappOTP() string
+	VerifyWhatsappOTP()
 }
 
 type EdgeVerifyIdentityViaWhatsappCheckCode struct {
@@ -102,7 +106,10 @@ func (e *EdgeVerifyIdentityViaWhatsappCheckCode) Instantiate(ctx *interaction.Co
 	}
 
 	phone := e.Identity.Claims[identity.IdentityClaimLoginIDValue].(string)
-	// fixme(whatsapp): check whatsapp otp by phone
+	_, err := ctx.WhatsappCodeProvider.VerifyCode(phone, ctx.WebSessionID, true)
+	if err != nil {
+		return nil, err
+	}
 
 	verifiedClaim := ctx.Verification.NewVerifiedClaim(
 		e.Identity.UserID,
